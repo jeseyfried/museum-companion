@@ -1,6 +1,8 @@
 // Minimal offline shell so the app is installable and launches without a
 // network. Cache-first for the static assets; everything else falls through.
-const CACHE = "museum-companion-v1";
+// Bump this on every deploy so clients drop the old cached assets (the worker
+// deletes non-matching caches on activate). Cache-first won't update otherwise.
+const CACHE = "museum-companion-v2";
 const ASSETS = [
   ".",
   "index.html",

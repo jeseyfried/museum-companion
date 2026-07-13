@@ -23,6 +23,11 @@ const els = {
 // fresh capture or refetch.
 let current = { data: null, questionIndex: 0 };
 
+// The photo(s) from the last capture, kept so follow-ups (disambiguation
+// choice, obscured-line correction) and "new question" refetches re-send the
+// same object to the model rather than losing it. Cleared on a new capture.
+let lastPhotos = [];
+
 function showScreen(name) {
   Object.entries(screens).forEach(([key, el]) =>
     el.classList.toggle("is-active", key === name)
@@ -75,7 +80,8 @@ async function identify(input = {}) {
 
 async function onShutter() {
   const blob = await captureFrame();
-  identify({ photos: blob ? [blob] : [] });
+  lastPhotos = blob ? [blob] : [];
+  identify({ photos: lastPhotos });
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -149,8 +155,9 @@ function onNewQuestion() {
     current.questionIndex += 1;
     paintQuestion();
   } else {
-    // Exhausted the three we hold → now (and only now) ask for more.
-    identify({ photos: [] });
+    // Exhausted the three we hold → now (and only now) ask for more, about
+    // the same object.
+    identify({ photos: lastPhotos });
   }
 }
 
@@ -180,7 +187,7 @@ function buildNote(text) {
   const input = reply.querySelector(".note__input");
   const send = () => {
     const val = input.value.trim();
-    if (val) identify({ followUp: val });
+    if (val) identify({ followUp: val, photos: lastPhotos });
   };
   reply.querySelector(".note__send").addEventListener("click", send);
   input.addEventListener("keydown", (e) => e.key === "Enter" && send());
@@ -251,7 +258,10 @@ function renderDisambiguate(data) {
     </div>`;
   const input = reply.querySelector(".note__input");
   reply.querySelector("#pick-send").addEventListener("click", () => {
-    identify({ followUp: input.value.trim() || "the one they pointed at" });
+    identify({
+      followUp: input.value.trim() || "the one they pointed at",
+      photos: lastPhotos,
+    });
   });
   reply.querySelector("#pick-rephoto").addEventListener("click", resetToCapture);
   card.appendChild(reply);
@@ -266,12 +276,18 @@ function renderError() {
 
 function resetToCapture() {
   current = { data: null, questionIndex: 0 };
+  lastPhotos = [];
   showScreen("capture");
 }
 
 // ── Dev bar ─────────────────────────────────────────────────────────────────
 function wireDevBar() {
   const bar = document.getElementById("devbar");
+  // The fixture switcher only affects mock mode — hide it against the real proxy.
+  if (typeof USE_MOCK !== "undefined" && !USE_MOCK) {
+    bar.style.display = "none";
+    return;
+  }
   bar.querySelectorAll(".devbar__btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       bar

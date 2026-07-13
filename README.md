@@ -1,49 +1,79 @@
-# Museum Companion — frontend (PWA)
+# Museum Companion (PWA)
 
-Camera-capture PWA that renders the three v4 response shapes (see
-`museum-companion-v4-instructions.md`, Part 4). **Frontend only, mock data —
-no backend yet.**
+Camera-capture PWA that identifies a museum object and offers three
+"different-door" questions behind a *new question* button, per the v4 system
+prompt (see `museum-companion-v4-instructions.md`). Frontend is a no-build
+vanilla PWA; the backend is one Vercel serverless function that holds the API
+key and the system prompt.
 
-## Run it
+## Architecture
 
-Any static server works — there is no build step.
-
-```powershell
-# from this folder
-python -m http.server 8123
-# then open http://localhost:8123
+```
+camera capture ─▶ fetchObjectData()  ──POST /api/object──▶  Claude (vision)
+   (app.js)          (api.js)                (api/object.js)
+       ▲                                          holds ANTHROPIC_API_KEY
+       └────────── renders answer / disambiguate card ◀──── parsed JSON
 ```
 
-or `npx serve`, or `vercel dev` (closest to production).
+- **`api.js`** — the one data boundary. `fetchObjectData()` POSTs the captured
+  photo(s) (as base64) to `/api/object` and returns the parsed response. Flip
+  `const USE_MOCK = true` at the top to run the UI entirely offline against the
+  local fixtures (the three Part-4 shapes) — handy for styling without spending
+  API calls. The **DEV · mock** bar only appears in mock mode.
+- **`api/object.js`** — the proxy. Holds the key + the Part 1 system prompt,
+  calls `claude-opus-4-8` with the image(s), strips any ```` ```json ```` fences,
+  `JSON.parse`s in a `try/catch`, and returns the object. A malformed response
+  or API error becomes a 502, which the UI shows as its "Let me try that again"
+  card.
 
-Use the **DEV · mock** bar at the top to flip between the three fixtures:
+## Run it locally
 
-- **Clean** — `answer` with `label_note: ""` (no callout, confident ID)
-- **Label note** — `answer` with a non-empty `label_note` (the "help me read this" strip)
-- **Disambiguate** — the picker card
+Requires the API key. Use the Vercel CLI so the serverless function runs too:
 
-Verified behavior: the card renders for all three shapes; **New question**
-walks `questions[0] → [1] → [2]` from the array in hand with the identification
-held stable, and only a tap *past* the third question triggers a refetch.
+```powershell
+npm install
+# put your key in .env (copy from .env.example) — .env is gitignored
+vercel dev
+```
 
-## The one swap point
+`vercel dev` serves the static frontend **and** `/api/object`, over HTTPS, which
+is also what lets the camera work when you open it on your phone.
 
-`fetchObjectData()` in [`api.js`](api.js) is the entire data boundary. It
-currently returns local fixtures. When you build the proxy, replace **only the
-body of that one function** with a `fetch()` to your `/api` endpoint (which
-holds the API key + system prompt) — signature and return shape stay identical,
-and every screen keeps working untouched. The fence-stripping + `try/catch`
-JSON parse from Part 4 lives inside that function too.
+**UI-only work (no key needed):** set `USE_MOCK = true` in `api.js` and serve
+statically (`python -m http.server 8123`). The DEV bar then drives all three
+card states from fixtures.
 
-## Camera + HTTPS (expect this when testing on your phone)
+## Deploy
 
-`getUserMedia` needs a **secure context**:
+Pushing to the GitHub repo auto-deploys on Vercel. **Set the key** in Vercel →
+Project → Settings → Environment Variables: `ANTHROPIC_API_KEY`. It lives only
+there and in your local `.env` — never in the repo or the frontend.
 
-- **Desktop `http://localhost`** → treated as secure, camera works.
-- **Phone over plain `http://<your-LAN-ip>`** → browsers block the camera. This
-  is the PWA-friction surprise, not a bug in this code.
+## Model & cost knobs (`api/object.js`)
 
-For real on-device capture testing, serve over HTTPS: `vercel dev` /
-a Vercel preview deploy both do this for you, or use an HTTPS tunnel. Until
-then the app degrades gracefully — the capture screen shows a "camera
-unavailable" fallback and the DEV bar still drives every card.
+- **Model** `claude-opus-4-8` with **adaptive thinking** — chosen because
+  question quality is this app's whole point (thinking also keeps the response
+  clean JSON). It's the slower/costlier option. To trade quality for speed/cost:
+  drop `thinking` to `{ type: "disabled" }`, lower `output_config.effort`, or
+  switch the model to `claude-sonnet-5`.
+- **`maxDuration = 60`** gives the vision + thinking call room; Vercel's default
+  would otherwise time out a slow request.
+
+## Gotchas
+
+- **Service worker caches aggressively.** `sw.js` is cache-first for the offline
+  shell, so after you change a file the browser may keep serving the old one.
+  Bump `CACHE` in `sw.js` (e.g. `-v2`) on each deploy to force an update — the
+  worker deletes old caches on activate. During local dev, a hard reload or
+  clearing site data does the same.
+- **Camera needs HTTPS.** `getUserMedia` works on `http://localhost` but is
+  blocked over plain `http://<LAN-ip>`. Use `vercel dev` or a Vercel preview URL
+  (both HTTPS) to test capture on a phone. The capture screen degrades to a
+  "camera unavailable" fallback otherwise.
+
+## Verified behavior
+
+Card renders for all three shapes; **New question** walks
+`questions[0] → [1] → [2]` from the array in hand with the identification held
+stable, and only a tap *past* the third triggers a refetch. Disambiguation and
+obscured-line replies re-send the original photo(s) with the visitor's text.

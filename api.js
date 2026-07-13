@@ -1,17 +1,19 @@
 // ============================================================================
 // api.js — the ONE data boundary for the museum companion frontend.
 //
-// SWAP POINT: right now fetchObjectData() returns local mock fixtures so the
-// whole UI can be built and demoed with no backend. When the proxy exists,
-// replace ONLY the body of fetchObjectData() with a fetch() to your /api
-// endpoint (which holds the API key + system prompt). Keep the signature and
-// the return shape identical, and every screen keeps working untouched.
+// fetchObjectData() now calls the real proxy (/api/object) by default. Flip
+// USE_MOCK to true to run entirely offline against the local fixtures below —
+// handy for tweaking the UI without burning API calls. The DEV bar only does
+// anything in mock mode.
 //
 // The mock fixtures below are the three Part-4 response shapes verbatim:
 //   1. clean       — an `answer` with label_note: ""
 //   2. labelNote   — an `answer` with a non-empty label_note
 //   3. disambiguate — a `disambiguate` picker response
 // ============================================================================
+
+// Set to true to serve the local fixtures instead of hitting /api/object.
+const USE_MOCK = false;
 
 const MOCK_FIXTURES = {
   // 1. Clean, legible single-object label → confident answer, no hedge.
@@ -69,28 +71,46 @@ function __setMockFixture(key) {
  * @param {string} [input.followUp] optional text, e.g. a disambiguation choice
  *                                   or the visitor reading back an obscured line
  * @returns {Promise<Object>} one of the Part-4 response shapes
- *
- * REAL IMPLEMENTATION (later) will look roughly like:
- *
- *   const form = new FormData();
- *   (input.photos || []).forEach((p, i) => form.append('photo' + i, p));
- *   if (input.followUp) form.append('followUp', input.followUp);
- *   const res  = await fetch('/api/object', { method: 'POST', body: form });
- *   const text = await res.text();
- *   return parseModelJson(text); // strip ```json fences + JSON.parse in try/catch
- *
- * Because callers only ever see the resolved object, swapping the body below
- * for that fetch is the entire migration.
+ * @throws  if the proxy returns a non-2xx (the UI shows its retry card)
  */
 async function fetchObjectData(input = {}) {
-  // ----- MOCK BODY (delete this whole block when wiring the proxy) -----
-  await new Promise((r) => setTimeout(r, 600)); // simulate network latency
+  if (USE_MOCK) return mockObjectData(input);
 
+  // Blobs can't be JSON-serialized — convert each to { media_type, data(base64) }
+  // for the proxy, which forwards them to the model as base64 image blocks.
+  const photos = await Promise.all((input.photos || []).map(blobToBase64));
+
+  const res = await fetch("/api/object", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photos, followUp: input.followUp }),
+  });
+  if (!res.ok) throw new Error(`proxy returned ${res.status}`);
+  return res.json(); // already the parsed Part-4 object
+}
+
+/** Read a Blob into { media_type, data } where data is base64 (no data: prefix). */
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const dataUrl = reader.result; // "data:image/jpeg;base64,AAAA..."
+      resolve({
+        media_type: blob.type || "image/jpeg",
+        data: String(dataUrl).split(",", 2)[1],
+      });
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Offline stand-in for the proxy, driven by the DEV bar. */
+async function mockObjectData(input) {
+  await new Promise((r) => setTimeout(r, 600)); // simulate network latency
   // A disambiguation reply always resolves to a concrete answer, the way the
   // model returns a normal `answer` once the visitor names their choice.
   if (input.followUp) return structuredClone(MOCK_FIXTURES.clean);
-
   const data = MOCK_FIXTURES[__mockFixtureKey] ?? MOCK_FIXTURES.clean;
   return structuredClone(data);
-  // ----- end mock body -----
 }
