@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"
+    />
+    <meta name="theme-color" content="#1c1a17" />
+    <title>Museum Companion</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- DEV bar: flip the mock fixture. Remove once the proxy is live. -->
+    <div id="devbar" class="devbar" role="toolbar" aria-label="Dev fixtures">
+      <span class="devbar__tag">DEV · mock</span>
+      <button data-fixture="clean" class="devbar__btn is-active">Clean</button>
+      <button data-fixture="labelNote" class="devbar__btn">Label note</button>
+      <button data-fixture="disambiguate" class="devbar__btn">Disambiguate</button>
+    </div>
+
+    <main class="app">
+      <!-- ── Capture screen ─────────────────────────────────────────── -->
+      <section id="screen-capture" class="screen screen--capture is-active">
+        <div class="viewfinder">
+          <video id="video" playsinline autoplay muted></video>
+          <p id="camera-msg" class="camera-msg" hidden></p>
+        </div>
+        <div class="capture-bar">
+          <p class="capture-hint">Point at an object and its wall label.</p>
+          <button id="shutter" class="shutter" aria-label="Take photo"></button>
+        </div>
+        <canvas id="frame" hidden></canvas>
+      </section>
+
+      <!-- ── Loading screen ─────────────────────────────────────────── -->
+      <section id="screen-loading" class="screen screen--loading">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="loading-text">Looking closely…</p>
+      </section>
+
+      <!-- ── Results screen (card renders here) ─────────────────────── -->
+      <section id="screen-results" class="screen screen--results">
+        <div id="card" class="card" aria-live="polite"></div>
+        <button id="reset" class="ghost-btn">← New photo</button>
+      </section>
+    </main>
+
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

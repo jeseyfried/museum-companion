@@ -1,0 +1,19 @@
+{
+  "name": "Museum Companion",
+  "short_name": "Companion",
+  "description": "Look more closely at the object in front of you.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17150f",
+  "theme_color": "#1c1a17",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

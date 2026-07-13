@@ -1,0 +1,346 @@
+:root {
+  --bg: #f6f3ee;
+  --surface: #ffffff;
+  --ink: #211f1b;
+  --ink-soft: #5c574f;
+  --line: #e3ddd2;
+  --accent: #8a5a2b;
+  --accent-soft: #f0e6d8;
+  --note-bg: #fdf4e3;
+  --note-line: #e8c98b;
+  --note-ink: #6b4c14;
+  --radius: 18px;
+  --shadow: 0 6px 24px rgba(40, 30, 15, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17150f;
+    --surface: #22201a;
+    --ink: #f2ede2;
+    --ink-soft: #b3ab99;
+    --line: #34302a;
+    --accent: #d9a35f;
+    --accent-soft: #33291b;
+    --note-bg: #2b2413;
+    --note-line: #6b5628;
+    --note-ink: #f0d79a;
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  min-height: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── Screens ──────────────────────────────────────────────────────── */
+.screen {
+  display: none;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+.screen.is-active {
+  display: flex;
+}
+
+/* ── Capture ──────────────────────────────────────────────────────── */
+.screen--capture {
+  background: #000;
+}
+.viewfinder {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.camera-msg {
+  position: absolute;
+  padding: 0 2rem;
+  color: #eee;
+  text-align: center;
+  line-height: 1.5;
+}
+.capture-bar {
+  padding: 1.1rem 1rem calc(1.4rem + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+.capture-hint {
+  margin: 0 0 0.9rem;
+  color: #f0ece4;
+  font-size: 0.9rem;
+}
+.shutter {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+.shutter:active {
+  transform: scale(0.92);
+}
+
+/* ── Loading ──────────────────────────────────────────────────────── */
+.screen--loading {
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.loading-text {
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+}
+
+/* ── Results ──────────────────────────────────────────────────────── */
+.screen--results {
+  padding: 1.1rem 1rem calc(1.1rem + env(safe-area-inset-bottom));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.4rem 1.3rem 1.5rem;
+}
+
+.card__id {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* label_note callout — visually secondary, invites a reply */
+.note {
+  margin-top: 1rem;
+  background: var(--note-bg);
+  border: 1px solid var(--note-line);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+.note__label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--note-ink);
+  margin-bottom: 0.4rem;
+}
+.note__text {
+  margin: 0 0 0.75rem;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--note-ink);
+}
+.note__reply {
+  display: flex;
+  gap: 0.5rem;
+}
+.note__input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--note-line);
+  border-radius: 9px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--ink);
+}
+.note__mic,
+.note__send {
+  border: 1px solid var(--note-line);
+  background: var(--surface);
+  color: var(--note-ink);
+  border-radius: 9px;
+  padding: 0 0.7rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* question block */
+.qwrap {
+  margin-top: 1.4rem;
+}
+.question {
+  font-size: 1.12rem;
+  line-height: 1.4;
+  margin: 0;
+  min-height: 3.2em;
+  display: flex;
+  align-items: center;
+}
+.qmeta {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.actions {
+  margin-top: 1.1rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: none;
+  border-radius: 11px;
+  padding: 0.72rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn--soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.btn:active {
+  filter: brightness(0.95);
+}
+
+/* tell me more */
+.more {
+  margin-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.9rem;
+}
+.more__toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.more__body {
+  margin: 0.7rem 0 0;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.more__body[hidden] {
+  display: none;
+}
+
+/* disambiguate */
+.card--pick .card__seen {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+.card--pick .card__prompt {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+.pick-reply {
+  margin-top: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.ghost-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.3rem 0.1rem;
+}
+
+/* ── Dev bar ──────────────────────────────────────────────────────── */
+.devbar {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(20, 18, 14, 0.9);
+  color: #fff;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0 0 12px 12px;
+  font-size: 0.72rem;
+}
+.devbar__tag {
+  opacity: 0.6;
+  margin-right: 0.2rem;
+  letter-spacing: 0.04em;
+}
+.devbar__btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: #fff;
+  border-radius: 7px;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.devbar__btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+}

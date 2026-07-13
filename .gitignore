@@ -1,0 +1,17 @@
+# Secrets — the whole reason the proxy exists. Never commit these.
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# Dependencies (once the proxy adds any)
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
