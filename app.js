@@ -262,13 +262,14 @@ function buildNote(text) {
   note.appendChild(p);
 
   // Reply affordance. label_note wants VOICE input (someone at a display can
-  // read a line aloud more easily than type it) — the mic is a stub for now;
-  // sending re-identifies with the visitor's correction as followUp.
+  // read a line aloud more easily than type it). The mic dictates into the same
+  // text box via the Web Speech API; sending re-identifies with the visitor's
+  // correction as followUp.
   const reply = document.createElement("div");
   reply.className = "note__reply";
   reply.innerHTML = `
     <input class="note__input" type="text" placeholder="Read the covered line…" aria-label="What the label says" />
-    <button class="note__mic" title="Voice input (coming soon)" aria-label="Voice input">🎙️</button>
+    <button class="note__mic" title="Tap to speak" aria-label="Voice input">🎙️</button>
     <button class="note__send" aria-label="Send">↑</button>`;
   const input = reply.querySelector(".note__input");
   const send = () => {
@@ -277,9 +278,72 @@ function buildNote(text) {
   };
   reply.querySelector(".note__send").addEventListener("click", send);
   input.addEventListener("keydown", (e) => e.key === "Enter" && send());
+  wireMic(reply.querySelector(".note__mic"), input);
   note.appendChild(reply);
 
   return note;
+}
+
+// Web Speech API, present in Chrome (incl. Android) as webkitSpeechRecognition.
+// Absent on some browsers (e.g. certain iOS versions) — we feature-detect and
+// hide the mic there so it's never a dead button.
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// Wire the 🎙️ button to dictate into `input`. Tapping starts recognition (which
+// triggers the OS mic-permission prompt the first time) and streams the
+// transcript into the text box; tapping again — or a pause — stops it.
+function wireMic(micBtn, input) {
+  if (!SpeechRecognition) {
+    micBtn.hidden = true; // no dictation here → don't show a button that does nothing
+    return;
+  }
+
+  let recognition = null;
+  let listening = false;
+
+  micBtn.addEventListener("click", () => {
+    if (listening) {
+      recognition.stop();
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true; // show words as they're recognized
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      listening = true;
+      micBtn.classList.add("is-listening");
+    };
+    recognition.onresult = (e) => {
+      // Join the pieces (interim + final) into the live transcript.
+      input.value = Array.from(e.results)
+        .map((r) => r[0].transcript)
+        .join("")
+        .trim();
+    };
+    recognition.onerror = (e) => {
+      // Most common: "not-allowed" (permission denied/blocked) and "no-speech".
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        input.placeholder = "Mic blocked — allow it, or just type instead.";
+      }
+    };
+    recognition.onend = () => {
+      listening = false;
+      micBtn.classList.remove("is-listening");
+      input.focus(); // let the visitor tidy the text and hit send
+    };
+
+    try {
+      recognition.start();
+    } catch (_) {
+      // start() throws if called while already running — reset and move on.
+      listening = false;
+      micBtn.classList.remove("is-listening");
+    }
+  });
 }
 
 function buildTellMeMore(text) {

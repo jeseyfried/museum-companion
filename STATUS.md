@@ -62,8 +62,11 @@ by the two new capture scenes:
 
 ## Deferred build items (planned earlier, not yet done)
 
-- **Voice input** for the `label_note` "read me the covered line" reply (currently
-  a text field + mic stub).
+- ~~**Voice input** for the `label_note` reply~~ — DONE 2026-07-14. The 🎙️ button
+  now dictates into the text box via the Web Speech API (`wireMic()` in `app.js`),
+  feature-detected (hides where unsupported), with a red pulsing "listening" state.
+  Verified wiring + mic-permission prompt + blocked-path handling in the pane;
+  live transcription needs a real Chrome/Android with mic permission granted.
 - **Tap-to-choose** options for the disambiguate card (currently free-text +
   re-photograph).
 - **Hardening:** pin `@anthropic-ai/sdk` to a version instead of `latest`; keep
