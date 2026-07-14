@@ -35,6 +35,11 @@ let lastPhotos = [];
 // so the proxy anchors the same way: "combined" (label in the shot),
 // "separate_label" (object + label shot separately), or "no_label".
 let lastScene = "combined";
+// Every text reply the visitor has given about THIS object, in order (a read-back
+// of an obscured line, a disambiguation choice, …). The proxy is stateless, so we
+// resend the whole list each time — otherwise the model forgets earlier answers
+// and can re-ask them, trapping the visitor in a loop. Cleared on a fresh object.
+let lastReplies = [];
 
 // Two-step capture state. step is "object" until the object shot is taken; if
 // the visitor chooses "Add label photo", it flips to "label" so the next tap
@@ -80,7 +85,8 @@ function captureFrame() {
 async function identify(input = {}) {
   showScreen("loading");
   try {
-    const data = await fetchObjectData(input);
+    // Always carry the accumulated replies so the model keeps every earlier answer.
+    const data = await fetchObjectData({ ...input, replies: lastReplies });
     if (!data || !data.type) throw new Error("malformed response");
     current = { data, questionIndex: 0 };
     renderCard(data);
@@ -117,6 +123,7 @@ async function onShutter() {
 function submit(photos, scene) {
   lastPhotos = photos;
   lastScene = scene;
+  lastReplies = []; // fresh object → no prior replies to carry
   resetCaptureUI();
   identify({ photos, scene });
 }
@@ -274,7 +281,9 @@ function buildNote(text) {
   const input = reply.querySelector(".note__input");
   const send = () => {
     const val = input.value.trim();
-    if (val) identify({ followUp: val, photos: lastPhotos, scene: lastScene });
+    if (!val) return;
+    lastReplies.push(val); // add to the running set so no earlier answer is lost
+    identify({ photos: lastPhotos, scene: lastScene });
   };
   reply.querySelector(".note__send").addEventListener("click", send);
   input.addEventListener("keydown", (e) => e.key === "Enter" && send());
@@ -408,11 +417,8 @@ function renderDisambiguate(data) {
     </div>`;
   const input = reply.querySelector(".note__input");
   reply.querySelector("#pick-send").addEventListener("click", () => {
-    identify({
-      followUp: input.value.trim() || "the one they pointed at",
-      photos: lastPhotos,
-      scene: lastScene,
-    });
+    lastReplies.push(input.value.trim() || "the one they pointed at");
+    identify({ photos: lastPhotos, scene: lastScene });
   });
   reply.querySelector("#pick-rephoto").addEventListener("click", resetToCapture);
   card.appendChild(reply);
@@ -429,6 +435,7 @@ function resetToCapture() {
   current = { data: null, questionIndex: 0 };
   lastPhotos = [];
   lastScene = "combined";
+  lastReplies = [];
   resetCaptureState();
   showScreen("capture");
 }

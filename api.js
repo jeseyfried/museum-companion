@@ -71,8 +71,10 @@ function __setMockFixture(key) {
  *                                  "separate_label" the order is [object, label].
  * @param {string} [input.scene]    how to read the photos: "combined" (label in
  *                                  the shot), "separate_label", or "no_label".
- * @param {string} [input.followUp] optional text, e.g. a disambiguation choice
- *                                   or the visitor reading back an obscured line
+ * @param {string[]} [input.replies] every text reply the visitor has given about
+ *                                   this object so far, in order (obscured-line
+ *                                   read-backs, a disambiguation choice). Sent
+ *                                   whole each round so the model keeps them all.
  * @returns {Promise<Object>} one of the Part-4 response shapes
  * @throws  if the proxy returns a non-2xx (the UI shows its retry card)
  */
@@ -86,7 +88,7 @@ async function fetchObjectData(input = {}) {
   const res = await fetch("/api/object", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ photos, scene: input.scene, followUp: input.followUp }),
+    body: JSON.stringify({ photos, scene: input.scene, replies: input.replies || [] }),
   });
   if (!res.ok) throw new Error(`proxy returned ${res.status}`);
   return res.json(); // already the parsed Part-4 object
@@ -111,9 +113,9 @@ function blobToBase64(blob) {
 /** Offline stand-in for the proxy, driven by the DEV bar. */
 async function mockObjectData(input) {
   await new Promise((r) => setTimeout(r, 600)); // simulate network latency
-  // A disambiguation reply always resolves to a concrete answer, the way the
-  // model returns a normal `answer` once the visitor names their choice.
-  if (input.followUp) return structuredClone(MOCK_FIXTURES.clean);
+  // Any reply resolves to a concrete answer, the way the model returns a normal
+  // `answer` once the visitor reads back the line or names their choice.
+  if (input.replies && input.replies.length) return structuredClone(MOCK_FIXTURES.clean);
   const data = MOCK_FIXTURES[__mockFixtureKey] ?? MOCK_FIXTURES.clean;
   return structuredClone(data);
 }

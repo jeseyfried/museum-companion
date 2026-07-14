@@ -44,6 +44,17 @@ branch** (identify from the object, `label_note: ""`, no obscured-text hedge).
 Verified in a static server by driving all four paths (scenes + Back). Camera itself
 is untested here — needs a real phone.
 
+## Reply accumulation — no more "Help me read this" loop (fixed 2026-07-14)
+
+The proxy is stateless, and the frontend used to send only the *latest* reply
+(`followUp`). So a second follow-up answer dropped the first, and the model could
+re-ask what it had already been told — an endless loop. Now the frontend keeps
+`lastReplies` (every reply about the current object, in order), resends the whole
+list each round (`replies[]` on the request), and clears it on a fresh capture. The
+proxy's `anchorText()` lists all replies and instructs the model not to re-ask
+anything already answered. Verified in a static server: successive answers arrive as
+`[]` → `[a]` → `[a, b]`. Voice input (🎙️, Web Speech API) also shipped 2026-07-14.
+
 ## Next up (not code — prompt testing on real objects)
 
 Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases, now joined

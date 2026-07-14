@@ -69,14 +69,11 @@ function parseModelJson(text) {
 }
 
 /**
- * The short text anchor that tells the model how to read the attached photo(s).
- * The scene comes from the frontend's two-step capture: the label may be in the
- * same shot ("combined"), photographed separately ("separate_label"), or absent
- * ("no_label"). A followUp always wins — it's a reply about the object we already
- * sent, so the photos keep whatever meaning they had.
+ * How to read the attached photo(s), from the frontend's two-step capture: the
+ * label may be in the same shot ("combined"), photographed separately
+ * ("separate_label"), or absent ("no_label").
  */
-function anchorText(followUp, scene, photoCount) {
-  if (followUp) return `The visitor replied: ${followUp}`;
+function sceneLine(scene, photoCount) {
   if (scene === "separate_label") {
     return "The visitor photographed the object and its wall label separately. The first image is the object; the second image is its wall label.";
   }
@@ -86,6 +83,20 @@ function anchorText(followUp, scene, photoCount) {
   return photoCount > 1
     ? "Here is the object and its wall label."
     : "Here is the object; its wall label, if any, is in this same photo.";
+}
+
+/**
+ * The full text anchor for the user turn. Because this proxy is stateless, the
+ * frontend resends EVERY reply the visitor has given about this object (obscured
+ * lines read back, a disambiguation choice). We hand the model all of them at
+ * once and tell it not to re-ask what it already has — otherwise it loses an
+ * earlier answer between rounds and loops back to the same question.
+ */
+function anchorText(replies, scene, photoCount) {
+  const base = sceneLine(scene, photoCount);
+  if (!replies.length) return base;
+  const joined = replies.map((r, i) => `(${i + 1}) ${r}`).join(" ");
+  return `${base} The visitor has since told you the following, in order: ${joined}. Treat all of it as known. Do not ask again for anything they have already answered; if you now have enough to identify the object, give the answer.`;
 }
 
 export default async function handler(req, res) {
@@ -103,9 +114,10 @@ export default async function handler(req, res) {
   }
 
   // Vercel parses a JSON body automatically for Node functions.
-  const { photos = [], followUp, scene = "combined" } = req.body || {};
-  if (!Array.isArray(photos) || (photos.length === 0 && !followUp)) {
-    return res.status(400).json({ error: "Send at least one photo (or a followUp)" });
+  const { photos = [], replies = [], scene = "combined" } = req.body || {};
+  const replyList = Array.isArray(replies) ? replies : [];
+  if (!Array.isArray(photos) || (photos.length === 0 && replyList.length === 0)) {
+    return res.status(400).json({ error: "Send at least one photo (or a reply)" });
   }
 
   // Build the user turn: the captured image(s), then a short text anchor.
@@ -114,7 +126,7 @@ export default async function handler(req, res) {
     type: "image",
     source: { type: "base64", media_type: p.media_type || "image/jpeg", data: p.data },
   }));
-  content.push({ type: "text", text: anchorText(followUp, scene, photos.length) });
+  content.push({ type: "text", text: anchorText(replyList, scene, photos.length) });
 
   try {
     const anthropic = new Anthropic({ apiKey });
