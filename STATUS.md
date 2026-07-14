@@ -6,8 +6,9 @@ A working note for picking the project back up. Delete whenever it stops being u
 
 - **Frontend PWA** (vanilla, no build): camera capture → results card. Renders all
   three v4 response shapes (answer, answer + `label_note`, disambiguate).
-  *New question* cycles `questions[0→1→2]` before any refetch; *tell me more*
-  expands. Mock fixtures live behind `USE_MOCK` in `api.js`.
+  *Back*/*Next* toggle within the set of three (`questions[0..2]`, bounded, ends
+  disabled); *New questions* refetches a fresh set; *tell me more* expands. Mock
+  fixtures live behind `USE_MOCK` in `api.js`.
 - **Proxy** `api/object.js` (Vercel serverless): holds the API key + Part 1 system
   prompt, calls `claude-opus-4-8` (adaptive thinking), strips ```` ```json ````
   fences, `JSON.parse` in try/catch.

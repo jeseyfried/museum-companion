@@ -352,6 +352,20 @@ body {
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* Secondary, text-style action (e.g. "New questions") set apart from Back/Next */
+.btn--ghost {
+  background: none;
+  color: var(--accent);
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}
+.actions .btn--ghost {
+  margin-left: auto;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .btn:active {
   filter: brightness(0.95);
 }

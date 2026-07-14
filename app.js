@@ -327,12 +327,28 @@ function renderAnswer(data) {
 
   const actions = document.createElement("div");
   actions.className = "actions";
-  const newQ = document.createElement("button");
-  newQ.className = "btn btn--soft";
-  newQ.id = "new-question";
-  newQ.textContent = "New question";
-  newQ.addEventListener("click", onNewQuestion);
-  actions.appendChild(newQ);
+
+  const prevQ = document.createElement("button");
+  prevQ.className = "btn btn--soft";
+  prevQ.id = "prev-question";
+  prevQ.textContent = "‹ Back";
+  prevQ.addEventListener("click", onPrevQuestion);
+
+  const nextQ = document.createElement("button");
+  nextQ.className = "btn btn--soft";
+  nextQ.id = "next-question";
+  nextQ.textContent = "Next ›";
+  nextQ.addEventListener("click", onNextQuestion);
+
+  // A fresh set of three, replacing the current one (kept separate from the
+  // Back/Next toggle so it's a deliberate, distinct action).
+  const newSet = document.createElement("button");
+  newSet.className = "btn btn--ghost";
+  newSet.id = "new-set";
+  newSet.textContent = "New questions";
+  newSet.addEventListener("click", onNewSet);
+
+  actions.append(prevQ, nextQ, newSet);
   qwrap.appendChild(actions);
 
   card.appendChild(qwrap);
@@ -349,20 +365,32 @@ function paintQuestion() {
   const meta = document.getElementById("qmeta");
   q.textContent = data.questions[questionIndex];
   meta.textContent = `Question ${questionIndex + 1} of ${data.questions.length}`;
+  // Bound the toggle: no going before the first or past the last of this set.
+  const prev = document.getElementById("prev-question");
+  const next = document.getElementById("next-question");
+  if (prev) prev.disabled = questionIndex === 0;
+  if (next) next.disabled = questionIndex >= data.questions.length - 1;
 }
 
-// New question: reveal questions[1], then [2], one per tap, from the array in
-// hand — no request. Only a tap PAST the last one triggers a fresh fetch.
-function onNewQuestion() {
-  const { data, questionIndex } = current;
-  if (questionIndex < data.questions.length - 1) {
+// Toggle within the set already in hand — no request either way.
+function onPrevQuestion() {
+  if (current.questionIndex > 0) {
+    current.questionIndex -= 1;
+    paintQuestion();
+  }
+}
+
+function onNextQuestion() {
+  if (current.questionIndex < current.data.questions.length - 1) {
     current.questionIndex += 1;
     paintQuestion();
-  } else {
-    // Exhausted the three we hold → now (and only now) ask for more, about
-    // the same object.
-    identify({ photos: lastPhotos, scene: lastScene });
   }
+}
+
+// New questions: fetch a fresh set of three about the same object, replacing the
+// current set (renderAnswer resets the index to 0).
+function onNewSet() {
+  identify({ photos: lastPhotos, scene: lastScene });
 }
 
 function buildNote(text) {
