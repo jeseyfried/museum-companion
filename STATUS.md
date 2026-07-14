@@ -70,6 +70,19 @@ welcome. "New photo" / re-photograph now return to the welcome hub. Verified in 
 static server: welcome layout; library → tray with all three scenes
 (separate_label/no_label/combined); camera button. `sw.js` CACHE → v6.
 
+## Image downscaling — fixes saved-photo failures (2026-07-14)
+
+Full-resolution library photos (a phone JPEG is often 3–12 MB) exceeded the Vercel
+serverless body limit (~4.5 MB) and the model's per-image cap (~5 MB), so every
+saved photo returned "Let me try that again" regardless of clarity. Camera frames
+were fine because they're capped at the video resolution. `normalizeImage()` in
+`app.js` now downscales every image (long edge ≤ 1568 px, re-encoded JPEG q0.85,
+EXIF orientation applied via `createImageBitmap`) at the single choke point in
+`submit()`. Verified: a 9.4 MB / 4000×3000 test image → 1568×1176 / 731 KB, and the
+full library→submit path hands 731 KB to the boundary. `sw.js` CACHE → v7. Note:
+HEIC is still unsupported by the model — only matters if a picked photo is HEIC, not
+JPEG.
+
 ## Next up (not code — prompt testing on real objects)
 
 Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases, now joined

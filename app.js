@@ -137,6 +137,38 @@ function captureFrame() {
   );
 }
 
+// Downscale an image so its long edge is at most maxEdge, re-encoded as JPEG.
+// Full-resolution library photos (several MB) otherwise exceed the serverless
+// body limit and the model's per-image size cap — the cause of "Let me try that
+// again" on clear saved photos. createImageBitmap applies EXIF orientation so
+// portrait library shots aren't rotated. Falls back to the original blob if
+// anything goes wrong, so a working path never regresses.
+async function normalizeImage(blob, maxEdge = 1568) {
+  if (!blob || typeof createImageBitmap !== "function") return blob;
+  try {
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
+    } catch (_) {
+      bitmap = await createImageBitmap(blob); // older engines: no options arg
+    }
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+    if (bitmap.close) bitmap.close();
+    const out = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85)
+    );
+    return out || blob;
+  } catch (_) {
+    return blob; // send the original rather than nothing
+  }
+}
+
 // ── Request flow ────────────────────────────────────────────────────────────
 async function identify(input = {}) {
   showScreen("loading");
@@ -175,13 +207,16 @@ async function onShutter() {
 }
 
 // Hand the captured photo(s) to the model with the scene that describes them,
-// then restore the capture screen so the next visit starts clean.
-function submit(photos, scene) {
-  lastPhotos = photos;
+// then restore the capture screen so the next visit starts clean. Every image is
+// downscaled first so full-resolution library photos don't exceed the request /
+// per-image size limits (camera frames are already small — this just unifies).
+async function submit(photos, scene) {
   lastScene = scene;
   lastReplies = []; // fresh object → no prior replies to carry
   resetCaptureUI();
-  identify({ photos, scene });
+  showScreen("loading"); // cover the resize + request in one loading state
+  lastPhotos = await Promise.all(photos.map((p) => normalizeImage(p)));
+  identify({ photos: lastPhotos, scene });
 }
 
 // ── Review tray (between the object shot and submitting) ────────────────────
