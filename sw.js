@@ -2,7 +2,7 @@
 // network. Cache-first for the static assets; everything else falls through.
 // Bump this on every deploy so clients drop the old cached assets (the worker
 // deletes non-matching caches on activate). Cache-first won't update otherwise.
-const CACHE = "museum-companion-v11";
+const CACHE = "museum-companion-v12";
 const ASSETS = [
   ".",
   "index.html",
@@ -11,6 +11,7 @@ const ASSETS = [
   "api.js",
   "icon.svg",
   "manifest.webmanifest",
+  "welcome-hero.jpg",
 ];
 
 self.addEventListener("install", (e) => {

@@ -75,6 +75,18 @@ body {
 .welcome {
   max-width: 380px;
 }
+/* Hero above the title — scales down to fit the column width AND the viewport
+   height (whichever is tighter), so it never crowds the title off-center. */
+.welcome__hero {
+  display: block;
+  max-width: 100%;
+  max-height: 32vh;
+  width: auto;
+  height: auto;
+  margin: 0 auto 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
 .welcome__title {
   margin: 0 0 1rem;
   font-size: 2rem;

@@ -45,6 +45,16 @@ branch** (identify from the object, `label_note: ""`, no obscured-text hedge).
 Verified in a static server by driving all four paths (scenes + Back). Camera itself
 is untested here — needs a real phone.
 
+## Welcome hero image (added 2026-07-14)
+
+A hero image sits above the title on the welcome screen (`welcome-hero.jpg`, a
+pencil-sketch museum scene). Source was a 12.7 MB / 2816×1536 PNG in Downloads;
+downscaled to 1000×545 JPEG q85 (~186 KB) via PowerShell System.Drawing. Styled
+`.welcome__hero` with `max-width:100%` + `max-height:32vh` (scales to whichever
+bound is tighter, preserving aspect) so it never crowds the title — verified at
+375×812 and 375×667 that everything fits and the title stays ~53px above center
+(essentially unchanged). Precached in `sw.js`; CACHE → v12.
+
 ## Reply accumulation — no more "Help me read this" loop (fixed 2026-07-14)
 
 The proxy is stateless, and the frontend used to send only the *latest* reply
