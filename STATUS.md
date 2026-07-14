@@ -55,6 +55,21 @@ proxy's `anchorText()` lists all replies and instructs the model not to re-ask
 anything already answered. Verified in a static server: successive answers arrive as
 `[]` → `[a]` → `[a, b]`. Voice input (🎙️, Web Speech API) also shipped 2026-07-14.
 
+## Welcome screen + photo-library input (added 2026-07-14)
+
+The app no longer opens straight into the camera. A **welcome screen**
+(`screen-welcome`, active by default) shows the title, two sentences of purpose,
+and two buttons: **Use camera** (starts the live capture flow) and **Add from saved
+photos** (opens the OS picker via a hidden `<input type=file accept=image/*>` — no
+`capture` attr, so it offers the library). A picked File is a Blob, so it flows
+through the exact same review tray as a camera shot; `capture.source`
+(`camera`/`library`) tells the tray whether "Add label photo" arms the shutter or
+opens the picker again, and whether "Retake" re-shoots or re-picks. Camera now
+starts on demand (not on load) and is released via `stopCamera()` when returning to
+welcome. "New photo" / re-photograph now return to the welcome hub. Verified in a
+static server: welcome layout; library → tray with all three scenes
+(separate_label/no_label/combined); camera button. `sw.js` CACHE → v6.
+
 ## Next up (not code — prompt testing on real objects)
 
 Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases, now joined

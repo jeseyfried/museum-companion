@@ -64,6 +64,40 @@ body {
   display: flex;
 }
 
+/* ── Welcome ──────────────────────────────────────────────────────── */
+.screen--welcome {
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  text-align: center;
+  padding: 2rem 1.5rem calc(2rem + env(safe-area-inset-bottom));
+}
+.welcome {
+  max-width: 380px;
+}
+.welcome__title {
+  margin: 0 0 1rem;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.welcome__text {
+  margin: 0 0 2rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.welcome__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.welcome__actions .btn {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  font-size: 1rem;
+}
+
 /* ── Capture ──────────────────────────────────────────────────────── */
 .screen--capture {
   background: #000;

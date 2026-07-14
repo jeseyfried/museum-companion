@@ -4,6 +4,7 @@
 // ============================================================================
 
 const screens = {
+  welcome: document.getElementById("screen-welcome"),
   capture: document.getElementById("screen-capture"),
   loading: document.getElementById("screen-loading"),
   results: document.getElementById("screen-results"),
@@ -20,6 +21,7 @@ const els = {
   captureCancel: document.getElementById("capture-cancel"),
   tray: document.getElementById("capture-tray"),
   trayThumb: document.getElementById("capture-thumb"),
+  fileInput: document.getElementById("file-input"),
 };
 
 // Per-identification UI state. questionIndex is which of the three questions
@@ -44,7 +46,10 @@ let lastReplies = [];
 // Two-step capture state. step is "object" until the object shot is taken; if
 // the visitor chooses "Add label photo", it flips to "label" so the next tap
 // captures the wall label as a separate image. thumbUrl backs the review tray.
-let capture = { step: "object", objectPhoto: null, thumbUrl: null };
+// source is where the photos come from — "camera" (live shutter) or "library"
+// (picked from the phone's photo library) — so the tray knows how to get the
+// label shot and how "Retake" should behave.
+let capture = { step: "object", objectPhoto: null, thumbUrl: null, source: "camera" };
 
 function showScreen(name) {
   Object.entries(screens).forEach(([key, el]) =>
@@ -53,21 +58,72 @@ function showScreen(name) {
 }
 
 // ── Camera ────────────────────────────────────────────────────────────────
+// Held so we can release the camera when leaving the capture screen (turns off
+// the device indicator and lets a later start re-acquire cleanly).
+let cameraStream = null;
+
 async function startCamera() {
+  if (cameraStream) return; // already live — don't request a second stream
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    cameraStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
       audio: false,
     });
-    els.video.srcObject = stream;
+    els.video.srcObject = cameraStream;
+    els.video.hidden = false;
+    els.cameraMsg.hidden = true;
   } catch (err) {
     // Expected on desktop without a camera, or over plain http:// on a phone
     // (camera needs a secure context). The dev bar still drives every card.
+    cameraStream = null;
     els.video.hidden = true;
     els.cameraMsg.hidden = false;
     els.cameraMsg.textContent =
       "Camera unavailable here — tap the shutter to run with a mock photo, or use the DEV bar to preview each card.";
   }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  els.video.srcObject = null;
+}
+
+// ── Photo library ───────────────────────────────────────────────────────────
+// Open the OS photo picker and resolve with the chosen File (a Blob, so it flows
+// through the same path as a camera shot), or null if the visitor cancels.
+function pickImageFile() {
+  return new Promise((resolve) => {
+    const input = els.fileInput;
+    input.value = ""; // reset so re-picking the same file still fires "change"
+    const cleanup = () => {
+      input.removeEventListener("change", onChange);
+      input.removeEventListener("cancel", onCancel);
+    };
+    const onChange = () => {
+      cleanup();
+      resolve(input.files && input.files[0] ? input.files[0] : null);
+    };
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+    input.addEventListener("change", onChange);
+    input.addEventListener("cancel", onCancel);
+    input.click();
+  });
+}
+
+// Pick the object photo from the library, then show the same review tray a
+// camera object shot would. Cancelling leaves the visitor where they were.
+async function startLibraryObject() {
+  const file = await pickImageFile();
+  if (!file) return;
+  capture.objectPhoto = file;
+  showScreen("capture"); // the tray is an opaque overlay; the black viewfinder never shows
+  openTray(file);
 }
 
 function captureFrame() {
@@ -136,11 +192,30 @@ function openTray(blob) {
   els.tray.hidden = false;
 }
 
-function onAddLabel() {
+async function onAddLabel() {
   els.tray.hidden = true;
+  if (capture.source === "library") {
+    // Label lives in another saved photo — pick it, then submit both.
+    const file = await pickImageFile();
+    if (file) submit([capture.objectPhoto, file], "separate_label");
+    else openTray(capture.objectPhoto); // cancelled → back to the tray
+    return;
+  }
+  // Camera: arm the shutter for the label shot as a second capture.
   capture.step = "label";
   els.captureHint.textContent = "Now point at the label, then tap to shoot.";
   els.captureCancel.hidden = false;
+}
+
+// "Retake" from the tray: re-pick from the library, or drop back to the live
+// viewfinder for the camera (which is still running).
+function onRetake() {
+  els.tray.hidden = true;
+  if (capture.source === "library") {
+    startLibraryObject();
+  } else {
+    resetCaptureState();
+  }
 }
 
 function onLabelInShot() {
@@ -170,10 +245,11 @@ function resetCaptureUI() {
   capture.step = "object";
 }
 
-// Full reset: drop the held object photo and free its thumbnail URL too.
+// Full reset: drop the held object photo and free its thumbnail URL too. Keeps
+// the current source (camera/library) so retake stays in the same mode.
 function resetCaptureState() {
   if (capture.thumbUrl) URL.revokeObjectURL(capture.thumbUrl);
-  capture = { step: "object", objectPhoto: null, thumbUrl: null };
+  capture = { step: "object", objectPhoto: null, thumbUrl: null, source: capture.source };
   resetCaptureUI();
 }
 
@@ -420,7 +496,7 @@ function renderDisambiguate(data) {
     lastReplies.push(input.value.trim() || "the one they pointed at");
     identify({ photos: lastPhotos, scene: lastScene });
   });
-  reply.querySelector("#pick-rephoto").addEventListener("click", resetToCapture);
+  reply.querySelector("#pick-rephoto").addEventListener("click", resetToWelcome);
   card.appendChild(reply);
 }
 
@@ -431,13 +507,30 @@ function renderError() {
     <p class="more__body" style="margin-top:.6rem">That reading didn’t come through cleanly. Take the photo once more.</p>`;
 }
 
-function resetToCapture() {
+// ── Welcome screen (the entry hub — choose camera or saved photos) ──────────
+function onUseCamera() {
+  capture.source = "camera";
+  resetCaptureState();
+  showScreen("capture");
+  startCamera();
+}
+
+function onUseLibrary() {
+  capture.source = "library";
+  resetCaptureState();
+  startLibraryObject(); // shows the capture screen only once a photo is chosen
+}
+
+// "New photo" / re-photograph: clear everything and return to the welcome hub
+// so the visitor can pick camera or library again. Releases the camera.
+function resetToWelcome() {
   current = { data: null, questionIndex: 0 };
   lastPhotos = [];
   lastScene = "combined";
   lastReplies = [];
   resetCaptureState();
-  showScreen("capture");
+  stopCamera();
+  showScreen("welcome");
 }
 
 // ── Dev bar ─────────────────────────────────────────────────────────────────
@@ -460,15 +553,18 @@ function wireDevBar() {
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
+document.getElementById("welcome-camera").addEventListener("click", onUseCamera);
+document.getElementById("welcome-library").addEventListener("click", onUseLibrary);
 els.shutter.addEventListener("click", onShutter);
-els.reset.addEventListener("click", resetToCapture);
+els.reset.addEventListener("click", resetToWelcome);
 els.captureCancel.addEventListener("click", onCaptureCancel);
 document.getElementById("tray-add-label").addEventListener("click", onAddLabel);
 document.getElementById("tray-label-in-shot").addEventListener("click", onLabelInShot);
 document.getElementById("tray-no-label").addEventListener("click", onNoLabel);
-document.getElementById("tray-retake").addEventListener("click", resetToCapture);
+document.getElementById("tray-retake").addEventListener("click", onRetake);
 wireDevBar();
-startCamera();
+// Camera no longer starts on load — it starts only when the visitor taps
+// "Use camera" from the welcome screen (which is active by default).
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
