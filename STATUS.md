@@ -102,6 +102,15 @@ logic (fabricated dropped, real kept, Wikipedia fallback), and the frontend
 lazy-load/caching/error-retry — the live web_search call itself needs a real deploy.
 Note: requires web search enabled on the Anthropic account. `sw.js` CACHE → v10.
 
+**2026-07-14 fix — box spun forever:** two bugs. (1) With web search on, the model
+prepends a preamble text block ("I'll research…") before the JSON, so joining all
+text blocks broke `JSON.parse` and every call 502'd — `parseModelJson` now slices
+first-`{` to last-`}`. (2) Latency: dynamic filtering (code execution) made the call
+~36s; switched web search to `allowed_callers:["direct"]`, max_uses 3 → ~13s. Added
+a 75s client-side `AbortController` timeout in `fetchMore` so the box can never spin
+forever. Verified end-to-end against the real API (13s, 184 words, 3 verified links
+incl. real Wikipedia). `sw.js` CACHE → v11.
+
 ## Next up (not code — prompt testing on real objects)
 
 Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases, now joined

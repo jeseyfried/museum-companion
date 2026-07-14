@@ -130,13 +130,22 @@ async function mockObjectData(input) {
  */
 async function fetchMore(input = {}) {
   if (USE_MOCK) return mockMore(input);
-  const res = await fetch("/api/more", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error(`more proxy returned ${res.status}`);
-  return res.json();
+  // Web search + Opus can take ~30s; cap the wait so the box never spins forever.
+  // On timeout the fetch rejects (AbortError) and the caller shows its retry text.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 75000);
+  try {
+    const res = await fetch("/api/more", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`more proxy returned ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Offline stand-in for /api/more. */

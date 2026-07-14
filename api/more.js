@@ -37,13 +37,21 @@ Respond with ONLY one valid JSON object — no markdown fences, no text before o
   "links": [ { "label": "<short label, e.g. 'Wikipedia: Benin Bronzes'>", "url": "<a real URL from your search results>" } ]
 }`;
 
-/** Strip markdown fences and parse. Throws on malformed input. */
+/**
+ * Extract and parse the JSON object from the model's text. With web search on,
+ * the model often prepends a preamble text block ("I'll research …") before the
+ * JSON, so we can't just parse the concatenated text — we slice from the first
+ * "{" to the last "}". Also strips any ```json fences. Throws on malformed input.
+ */
 function parseModelJson(text) {
-  const s = String(text)
+  let s = String(text)
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
     .trim();
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start !== -1 && end > start) s = s.slice(start, end + 1);
   return JSON.parse(s);
 }
 
@@ -104,11 +112,13 @@ export default async function handler(req, res) {
         max_tokens: 2048,
         thinking: { type: "adaptive" },
         output_config: { effort: "low" },
-        // Latest web-search variant supported on Opus 4.8 (built-in dynamic
-        // filtering; do NOT also declare code_execution). Older models would use
-        // the basic web_search_20250305 instead. Result blocks come back as
-        // web_search_tool_result → .content is a list of web_search_result {url,…}.
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+        // web_search_20260209 on Opus 4.8. allowed_callers:["direct"] skips the
+        // dynamic-filtering code-execution layer — noticeably faster for a small
+        // request like this, which matters under the serverless time limit.
+        // Result blocks are web_search_tool_result → .content is [{url,title,…}].
+        tools: [
+          { type: "web_search_20260209", name: "web_search", max_uses: 3, allowed_callers: ["direct"] },
+        ],
         system: SYSTEM_PROMPT,
         messages,
       });
