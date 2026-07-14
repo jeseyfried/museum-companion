@@ -84,6 +84,24 @@ full library→submit path hands 731 KB to the boundary. `sw.js` CACHE → v7. N
 HEIC is still unsupported by the model — only matters if a picked photo is HEIC, not
 JPEG.
 
+## "Tell me more" — web-verified, on demand (added 2026-07-14)
+
+The box no longer comes from Part 1 (dropped `tell_me_more` from `api/object.js`).
+On first expand, the frontend lazily calls a new endpoint **`api/more.js`** (shows a
+spinner, caches the result on the card). That endpoint runs `claude-opus-4-8` with
+the **web_search server tool** (`web_search_20260209` — the current variant for
+Opus 4.8; built-in dynamic filtering, so no separate code_execution) to produce
+~200 words that go *beyond* the label (no duplication, anti-confabulation: shorter if
+sources are thin) plus links. **Link anti-hallucination is the core mechanism:**
+every URL Claude returns is filtered server-side against the actual
+`web_search_tool_result` URLs, so a fabricated link can't reach the UI; a Wikipedia
+link is guaranteed via a constructed `Special:Search?...&go=Go` fallback if search
+didn't surface one. Handles `pause_turn` by resuming the turn (server-tool loop cap).
+Costs an API call (incl. web search) only when a visitor taps. Verified: link-filter
+logic (fabricated dropped, real kept, Wikipedia fallback), and the frontend
+lazy-load/caching/error-retry — the live web_search call itself needs a real deploy.
+Note: requires web search enabled on the Anthropic account. `sw.js` CACHE → v10.
+
 ## Next up (not code — prompt testing on real objects)
 
 Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases, now joined

@@ -353,8 +353,8 @@ function renderAnswer(data) {
 
   card.appendChild(qwrap);
 
-  // tell me more — collapsed by default
-  if (data.tell_me_more) card.appendChild(buildTellMeMore(data.tell_me_more));
+  // tell me more — collapsed by default; content is fetched on first expand
+  card.appendChild(buildTellMeMore(data));
 
   paintQuestion();
 }
@@ -494,7 +494,10 @@ function wireMic(micBtn, input) {
   });
 }
 
-function buildTellMeMore(text) {
+// "Tell me more" is generated on demand: the first time the visitor expands it,
+// we call the web-search-backed /api/more for ~200 words of grounded context
+// plus verified links, cache the result on the card, and just show/hide it after.
+function buildTellMeMore(data) {
   const wrap = document.createElement("div");
   wrap.className = "more";
 
@@ -503,21 +506,66 @@ function buildTellMeMore(text) {
   toggle.setAttribute("aria-expanded", "false");
   toggle.innerHTML = `<span class="more__chevron">▸</span> Tell me more`;
 
-  const body = document.createElement("p");
+  const body = document.createElement("div");
   body.className = "more__body";
   body.hidden = true;
-  body.textContent = text;
+
+  let loaded = null; // cache the fetched { text, links } so re-expanding is free
+
+  async function load() {
+    body.innerHTML = `<p class="more__status"><span class="dot-spin" aria-hidden="true"></span> Looking things up…</p>`;
+    try {
+      const res = await fetchMore({
+        identification: data.identification,
+        labelNote: data.label_note || "",
+        replies: lastReplies,
+      });
+      loaded = res;
+      renderMore(body, res);
+    } catch (_) {
+      // Leave loaded null so the next expand retries.
+      body.innerHTML = `<p class="more__status">Couldn’t load more just now — try again in a moment.</p>`;
+    }
+  }
 
   toggle.addEventListener("click", () => {
-    const open = body.hidden;
-    body.hidden = !open;
-    toggle.setAttribute("aria-expanded", String(open));
-    toggle.querySelector(".more__chevron").textContent = open ? "▾" : "▸";
+    const opening = body.hidden;
+    body.hidden = !opening;
+    toggle.setAttribute("aria-expanded", String(opening));
+    toggle.querySelector(".more__chevron").textContent = opening ? "▾" : "▸";
+    if (opening && !loaded) load();
   });
 
   wrap.appendChild(toggle);
   wrap.appendChild(body);
   return wrap;
+}
+
+function renderMore(body, res) {
+  body.innerHTML = "";
+
+  const p = document.createElement("p");
+  p.className = "more__text";
+  p.textContent = res.text || "";
+  body.appendChild(p);
+
+  if (Array.isArray(res.links) && res.links.length) {
+    const ul = document.createElement("ul");
+    ul.className = "more__links";
+    res.links.forEach((l) => {
+      if (!l || !l.url) return;
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.className = "more__link";
+      a.href = l.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = l.label || l.url;
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    body.appendChild(ul);
+  }
 }
 
 function renderDisambiguate(data) {

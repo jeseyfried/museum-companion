@@ -27,8 +27,6 @@ const MOCK_FIXTURES = {
       "How do you carve a lid that fits this tightly without metal tools?",
       "What makes a box for pigment worth this much care to decorate?",
     ],
-    tell_me_more:
-      "Boxes like this were often wedding gifts carved by the groom's family. The snugger the lid, the more skill it quietly advertised.",
   },
 
   // 2. Label present but partly obscured → answer that flags the gap honestly.
@@ -42,8 +40,6 @@ const MOCK_FIXTURES = {
       "How do you tune a bell you can only cast once?",
       "Who was allowed to strike it, and who wasn’t?",
     ],
-    tell_me_more:
-      "Bells cast in tuned sets were adjusted by shaving the inside walls after casting — a one-way job, since you can’t add bronze back.",
   },
 
   // 3. Crowded scene under one label → ask which object they mean.
@@ -118,4 +114,40 @@ async function mockObjectData(input) {
   if (input.replies && input.replies.length) return structuredClone(MOCK_FIXTURES.clean);
   const data = MOCK_FIXTURES[__mockFixtureKey] ?? MOCK_FIXTURES.clean;
   return structuredClone(data);
+}
+
+/**
+ * Fetch the on-demand "Tell me more" — grounded ~200-word context plus verified
+ * links — for an already-identified object. Called when the visitor expands the
+ * box, so the web search only runs (and only costs) on a real tap.
+ *
+ * @param {Object}   input
+ * @param {string}   input.identification the one-line ID from the answer card
+ * @param {string}  [input.labelNote]     any obscured-label note
+ * @param {string[]}[input.replies]       the visitor's read-backs/choices
+ * @returns {Promise<{text: string, links: {label: string, url: string}[]}>}
+ * @throws  if the endpoint returns a non-2xx (the box shows a retry message)
+ */
+async function fetchMore(input = {}) {
+  if (USE_MOCK) return mockMore(input);
+  const res = await fetch("/api/more", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`more proxy returned ${res.status}`);
+  return res.json();
+}
+
+/** Offline stand-in for /api/more. */
+async function mockMore() {
+  await new Promise((r) => setTimeout(r, 900));
+  return {
+    text:
+      "Objects like this sat at the center of daily ritual, not on a pedestal. The people who made it worked within traditions passed hand to hand across generations, and a piece this carefully finished would have signaled status as much as function. Its journey to this gallery — through trade, collecting, and sometimes contested acquisition — is a story the label rarely has room to tell.",
+    links: [
+      { label: "Wikipedia: Example context", url: "https://en.wikipedia.org/wiki/Example" },
+      { label: "Books on this topic", url: "https://www.google.com/search?tbm=bks&q=example" },
+    ],
+  };
 }
