@@ -16,6 +16,10 @@ const els = {
   shutter: document.getElementById("shutter"),
   card: document.getElementById("card"),
   reset: document.getElementById("reset"),
+  captureHint: document.getElementById("capture-hint"),
+  captureCancel: document.getElementById("capture-cancel"),
+  tray: document.getElementById("capture-tray"),
+  trayThumb: document.getElementById("capture-thumb"),
 };
 
 // Per-identification UI state. questionIndex is which of the three questions
@@ -27,6 +31,15 @@ let current = { data: null, questionIndex: 0 };
 // choice, obscured-line correction) and "new question" refetches re-send the
 // same object to the model rather than losing it. Cleared on a new capture.
 let lastPhotos = [];
+// Which scene the last capture described, sent alongside lastPhotos on refetch
+// so the proxy anchors the same way: "combined" (label in the shot),
+// "separate_label" (object + label shot separately), or "no_label".
+let lastScene = "combined";
+
+// Two-step capture state. step is "object" until the object shot is taken; if
+// the visitor chooses "Add label photo", it flips to "label" so the next tap
+// captures the wall label as a separate image. thumbUrl backs the review tray.
+let capture = { step: "object", objectPhoto: null, thumbUrl: null };
 
 function showScreen(name) {
   Object.entries(screens).forEach(([key, el]) =>
@@ -80,8 +93,81 @@ async function identify(input = {}) {
 
 async function onShutter() {
   const blob = await captureFrame();
-  lastPhotos = blob ? [blob] : [];
-  identify({ photos: lastPhotos });
+
+  if (capture.step === "object") {
+    if (!blob) {
+      // No live camera (desktop, or plain http:// on a phone). Preserve the
+      // old one-shot path so the dev bar and mock keep working.
+      submit([], "combined");
+      return;
+    }
+    capture.objectPhoto = blob;
+    openTray(blob);
+    return;
+  }
+
+  // step === "label": this second shot is the wall label, photographed apart
+  // from the object. If the camera gave us nothing, fall back to object-only.
+  const photos = blob ? [capture.objectPhoto, blob] : [capture.objectPhoto];
+  submit(photos, blob ? "separate_label" : "no_label");
+}
+
+// Hand the captured photo(s) to the model with the scene that describes them,
+// then restore the capture screen so the next visit starts clean.
+function submit(photos, scene) {
+  lastPhotos = photos;
+  lastScene = scene;
+  resetCaptureUI();
+  identify({ photos, scene });
+}
+
+// ── Review tray (between the object shot and submitting) ────────────────────
+function openTray(blob) {
+  if (capture.thumbUrl) URL.revokeObjectURL(capture.thumbUrl);
+  capture.thumbUrl = URL.createObjectURL(blob);
+  els.trayThumb.src = capture.thumbUrl;
+  els.tray.hidden = false;
+}
+
+function onAddLabel() {
+  els.tray.hidden = true;
+  capture.step = "label";
+  els.captureHint.textContent = "Now point at the label, then tap to shoot.";
+  els.captureCancel.hidden = false;
+}
+
+function onLabelInShot() {
+  els.tray.hidden = true;
+  submit([capture.objectPhoto], "combined");
+}
+
+function onNoLabel() {
+  els.tray.hidden = true;
+  submit([capture.objectPhoto], "no_label");
+}
+
+// Back out of the separate-label step to the review tray for the object shot.
+function onCaptureCancel() {
+  capture.step = "object";
+  els.captureHint.textContent = "Point at the object.";
+  els.captureCancel.hidden = true;
+  if (capture.objectPhoto) openTray(capture.objectPhoto);
+}
+
+// Restore the capture screen to its "object" default without touching the
+// photos we just submitted (those live in lastPhotos for refetches).
+function resetCaptureUI() {
+  els.tray.hidden = true;
+  els.captureCancel.hidden = true;
+  els.captureHint.textContent = "Point at the object.";
+  capture.step = "object";
+}
+
+// Full reset: drop the held object photo and free its thumbnail URL too.
+function resetCaptureState() {
+  if (capture.thumbUrl) URL.revokeObjectURL(capture.thumbUrl);
+  capture = { step: "object", objectPhoto: null, thumbUrl: null };
+  resetCaptureUI();
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -157,7 +243,7 @@ function onNewQuestion() {
   } else {
     // Exhausted the three we hold → now (and only now) ask for more, about
     // the same object.
-    identify({ photos: lastPhotos });
+    identify({ photos: lastPhotos, scene: lastScene });
   }
 }
 
@@ -187,7 +273,7 @@ function buildNote(text) {
   const input = reply.querySelector(".note__input");
   const send = () => {
     const val = input.value.trim();
-    if (val) identify({ followUp: val, photos: lastPhotos });
+    if (val) identify({ followUp: val, photos: lastPhotos, scene: lastScene });
   };
   reply.querySelector(".note__send").addEventListener("click", send);
   input.addEventListener("keydown", (e) => e.key === "Enter" && send());
@@ -261,6 +347,7 @@ function renderDisambiguate(data) {
     identify({
       followUp: input.value.trim() || "the one they pointed at",
       photos: lastPhotos,
+      scene: lastScene,
     });
   });
   reply.querySelector("#pick-rephoto").addEventListener("click", resetToCapture);
@@ -277,6 +364,8 @@ function renderError() {
 function resetToCapture() {
   current = { data: null, questionIndex: 0 };
   lastPhotos = [];
+  lastScene = "combined";
+  resetCaptureState();
   showScreen("capture");
 }
 
@@ -302,6 +391,11 @@ function wireDevBar() {
 // ── Boot ─────────────────────────────────────────────────────────────────────
 els.shutter.addEventListener("click", onShutter);
 els.reset.addEventListener("click", resetToCapture);
+els.captureCancel.addEventListener("click", onCaptureCancel);
+document.getElementById("tray-add-label").addEventListener("click", onAddLabel);
+document.getElementById("tray-label-in-shot").addEventListener("click", onLabelInShot);
+document.getElementById("tray-no-label").addEventListener("click", onNoLabel);
+document.getElementById("tray-retake").addEventListener("click", resetToCapture);
 wireDevBar();
 startCamera();
 

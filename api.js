@@ -67,7 +67,10 @@ function __setMockFixture(key) {
  * Fetch a structured identification for the captured photo(s).
  *
  * @param {Object}  input
- * @param {Blob[]} [input.photos]   captured image blobs (object, and usually label)
+ * @param {Blob[]} [input.photos]   captured image blobs. For scene
+ *                                  "separate_label" the order is [object, label].
+ * @param {string} [input.scene]    how to read the photos: "combined" (label in
+ *                                  the shot), "separate_label", or "no_label".
  * @param {string} [input.followUp] optional text, e.g. a disambiguation choice
  *                                   or the visitor reading back an obscured line
  * @returns {Promise<Object>} one of the Part-4 response shapes
@@ -83,7 +86,7 @@ async function fetchObjectData(input = {}) {
   const res = await fetch("/api/object", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ photos, followUp: input.followUp }),
+    body: JSON.stringify({ photos, scene: input.scene, followUp: input.followUp }),
   });
   if (!res.ok) throw new Error(`proxy returned ${res.status}`);
   return res.json(); // already the parsed Part-4 object

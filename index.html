@@ -30,10 +30,24 @@
           <p id="camera-msg" class="camera-msg" hidden></p>
         </div>
         <div class="capture-bar">
-          <p class="capture-hint">Point at an object and its wall label.</p>
+          <p id="capture-hint" class="capture-hint">Point at the object.</p>
           <button id="shutter" class="shutter" aria-label="Take photo"></button>
+          <button id="capture-cancel" class="capture-cancel" hidden>← Back</button>
         </div>
         <canvas id="frame" hidden></canvas>
+
+        <!-- Review tray: appears after the object shot so the visitor can say
+             where the label is (separate photo, in this shot, or none). -->
+        <div id="capture-tray" class="capture-tray" hidden>
+          <img id="capture-thumb" class="capture-thumb" alt="The photo you just took" />
+          <p id="tray-hint" class="tray-hint">Got the object. Where’s its label?</p>
+          <div class="tray-actions">
+            <button id="tray-add-label" class="btn btn--primary">Add label photo</button>
+            <button id="tray-label-in-shot" class="btn btn--soft">Label’s in this shot</button>
+            <button id="tray-no-label" class="btn btn--soft">No label on this object</button>
+            <button id="tray-retake" class="ghost-btn tray-retake">Retake</button>
+          </div>
+        </div>
       </section>
 
       <!-- ── Loading screen ─────────────────────────────────────────── -->

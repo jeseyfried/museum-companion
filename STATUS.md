@@ -29,9 +29,25 @@ UI-only tweaks with no key/model calls: set `USE_MOCK = true` in `api.js`, then
 If a code change "doesn't show up," it's the service worker cache — hard-reload,
 or bump `CACHE` in `sw.js`.
 
+## Capture flow — two-step, three scenes (added 2026-07-14)
+
+The shutter no longer submits immediately. First tap shoots the **object**, then a
+review tray offers: **Add label photo** (shoot the label separately → 2 photos),
+**Label's in this shot** (1 photo, today's behavior), **No label on this object**
+(1 photo, identify from the object), or **Retake**. The label step shows a "← Back"
+that returns to the tray. The frontend sends a `scene` field with the photos —
+`"combined" | "separate_label" | "no_label"` — persisted as `lastScene` so
+refetches/follow-ups anchor the same way. The proxy turns `scene` into the user-turn
+text anchor (`anchorText()` in `api/object.js`); for `separate_label` it tells the
+model image 1 = object, image 2 = label. The system prompt gained a **no-label
+branch** (identify from the object, `label_note: ""`, no obscured-text hedge).
+Verified in a static server by driving all four paths (scenes + Back). Camera itself
+is untested here — needs a real phone.
+
 ## Next up (not code — prompt testing on real objects)
 
-Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases:
+Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases, now joined
+by the two new capture scenes:
 
 1. **Fully illegible label** (shoot into glare) → should fall back to the object
    plus a request for you to read/describe it, *not* invent an identification.
@@ -39,6 +55,10 @@ Part 3 of `museum-companion-v4-instructions.md` flags two unproven cases:
    *not* a hedge. Confirm the obscured-text caveat doesn't over-fire.
 3. Read a few `questions` arrays back to back and watch for a new verbal tic
    replacing the banned "what do you make of."
+4. **No label** scene → identifies from the object honestly ("This looks like…"),
+   `label_note: ""`, and does *not* talk about an obscured/unreadable label.
+5. **Separate label** scene → correctly reads image 2 as the label for image 1's
+   object (test with the label of a *different* object to be sure it's using it).
 
 ## Deferred build items (planned earlier, not yet done)
 

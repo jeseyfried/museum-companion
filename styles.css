@@ -67,6 +67,7 @@ body {
 /* ── Capture ──────────────────────────────────────────────────────── */
 .screen--capture {
   background: #000;
+  position: relative;
 }
 .viewfinder {
   position: relative;
@@ -110,6 +111,59 @@ body {
 }
 .shutter:active {
   transform: scale(0.92);
+}
+.capture-cancel {
+  display: block;
+  margin: 0.75rem auto 0;
+  background: none;
+  border: none;
+  color: #d9d2c6;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* Review tray — overlays the viewfinder after the object shot */
+.capture-tray {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  padding: 1.5rem 1.2rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: rgba(10, 8, 5, 0.92);
+}
+.capture-tray[hidden] {
+  display: none;
+}
+.capture-thumb {
+  max-width: 62%;
+  max-height: 40vh;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  object-fit: cover;
+}
+.tray-hint {
+  margin: 0;
+  color: #f0ece4;
+  font-size: 1.02rem;
+  text-align: center;
+}
+.tray-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 320px;
+}
+.tray-actions .btn {
+  width: 100%;
+}
+.tray-retake {
+  align-self: center;
+  color: #cbc4b6;
 }
 
 /* ── Loading ──────────────────────────────────────────────────────── */

@@ -18,7 +18,7 @@ export const maxDuration = 60;
 
 // Part 1 of the v4 instructions, verbatim. This is the contract the UI renders
 // against — edit it here (and re-test) rather than in the frontend.
-const SYSTEM_PROMPT = `You are a museum companion that helps a visitor look more closely at an object in front of them. You receive one or more photos: the object, and usually its wall label. Your job is not to lecture but to spark curiosity.
+const SYSTEM_PROMPT = `You are a museum companion that helps a visitor look more closely at an object in front of them. You receive one or more photos: the object, and sometimes its wall label. The visitor's message tells you the scene — whether the label is in the same photo, was photographed separately (when it is, the first image is the object and the second is its label), or is absent. Your job is not to lecture but to spark curiosity.
 
 **You must respond with only a single valid JSON object and nothing else** — no preamble, no markdown fences, no text before or after. The object always has a "type" field. Choose the type by checking the scene in this order:
 
@@ -30,7 +30,9 @@ const SYSTEM_PROMPT = `You are a museum companion that helps a visitor look more
   "prompt": "<short question asking which one caught their eye>"
 }
 
-**2. If the label is present but you cannot read all of it** (blur, glare, a blocked or cut-off portion) — even if you can guess the missing words from context — do not silently fill the gaps. Respond:
+**2. If there is no wall label** — the visitor's message says the object has no label, or no label is visible in any photo — identify the object from its appearance alone. Respond with the answer shape below, with label_note set to an empty string "". Frame the identification as inference ("This looks like…", "This appears to be…"), since you are reading the object rather than a label. Do NOT mention obscured, blurred, or unreadable label text — there is no label to read. If you genuinely cannot tell what it is, say what you can observe and offer your best honest guess.
+
+**3. If a label is present but you cannot read all of it** (blur, glare, a blocked or cut-off portion) — even if you can guess the missing words from context — do not silently fill the gaps. Respond:
 
 {
   "type": "answer",
@@ -40,7 +42,7 @@ const SYSTEM_PROMPT = `You are a museum companion that helps a visitor look more
   "tell_me_more": "<one or two sentences, shown only if the visitor asks>"
 }
 
-**3. Otherwise** (single object, legible label), respond with the same answer shape, with label_note set to an empty string "".
+**4. Otherwise** (the label is present and fully legible), respond with the same answer shape, with label_note set to an empty string "".
 
 Field rules:
 
@@ -66,6 +68,26 @@ function parseModelJson(text) {
   return data;
 }
 
+/**
+ * The short text anchor that tells the model how to read the attached photo(s).
+ * The scene comes from the frontend's two-step capture: the label may be in the
+ * same shot ("combined"), photographed separately ("separate_label"), or absent
+ * ("no_label"). A followUp always wins — it's a reply about the object we already
+ * sent, so the photos keep whatever meaning they had.
+ */
+function anchorText(followUp, scene, photoCount) {
+  if (followUp) return `The visitor replied: ${followUp}`;
+  if (scene === "separate_label") {
+    return "The visitor photographed the object and its wall label separately. The first image is the object; the second image is its wall label.";
+  }
+  if (scene === "no_label") {
+    return "This object has no wall label. Identify it from the object itself; do not describe any label as obscured or unreadable.";
+  }
+  return photoCount > 1
+    ? "Here is the object and its wall label."
+    : "Here is the object; its wall label, if any, is in this same photo.";
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -81,7 +103,7 @@ export default async function handler(req, res) {
   }
 
   // Vercel parses a JSON body automatically for Node functions.
-  const { photos = [], followUp } = req.body || {};
+  const { photos = [], followUp, scene = "combined" } = req.body || {};
   if (!Array.isArray(photos) || (photos.length === 0 && !followUp)) {
     return res.status(400).json({ error: "Send at least one photo (or a followUp)" });
   }
@@ -92,14 +114,7 @@ export default async function handler(req, res) {
     type: "image",
     source: { type: "base64", media_type: p.media_type || "image/jpeg", data: p.data },
   }));
-  content.push({
-    type: "text",
-    text: followUp
-      ? `The visitor replied: ${followUp}`
-      : photos.length > 1
-        ? "Here is the object and its wall label."
-        : "Here is the object.",
-  });
+  content.push({ type: "text", text: anchorText(followUp, scene, photos.length) });
 
   try {
     const anthropic = new Anthropic({ apiKey });
