@@ -1,4 +1,4 @@
-# Museum Companion — resume note (current as of 2026-07-14)
+# Museum Companion — resume note (current as of 2026-07-16)
 
 A PWA where a museum visitor photographs (or picks) an object and gets an
 identification, three "different-door" questions, and optional deeper context.
@@ -21,6 +21,11 @@ This note is the fast way back in — skim it, then open the files it points to.
    **three questions** with **‹ Back / Next ›** (bounded, ends disabled) and a
    separate **New questions** (refetches a fresh three); and **Tell me more**
    (lazy-loads deeper context + verified links on first tap).
+
+The three questions follow a **fixed by-position typology** (in `api/object.js`):
+**Q1** = the best-first hook (the original spec, unchanged); **Q2** = a whimsical /
+imaginative what-if; **Q3** = "look closer," always investigatory about one
+actually-visible object detail (guardrailed against inventing details).
 
 ## Architecture / where things live
 
@@ -89,8 +94,9 @@ real museum objects on the phone:
    obscured-label talk.
 4. **Separate-label scene** → actually reads image 2 as image 1's label (test with a
    *different* object's label to be sure).
-5. Read several `questions` arrays back-to-back — watch for a new verbal tic replacing
-   the banned "what do you make of."
+5. Read several `questions` arrays back-to-back — confirm the Q1/Q2/Q3 typology holds
+   (hook → whimsical → look-closer), Q3 names a real visible detail rather than
+   inventing one, and no new verbal tic replaces the banned "what do you make of."
 6. Confirm on a real Chrome/Android: **voice dictation** fills the reply box, and
    **Tell me more** loads (~10–15s) with a good write-up + working links.
 
