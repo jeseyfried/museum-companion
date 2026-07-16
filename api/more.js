@@ -65,6 +65,17 @@ function normalizeUrl(u) {
   }
 }
 
+// With web search on, the model sometimes wraps cited spans in citation markup
+// (<cite index="0-1">…</cite>) inside its prose. We render res.text as plain
+// textContent, so those tags would show up literally in the card. Strip the tags
+// but keep the text they wrap; tidy any space left before punctuation.
+function stripCiteTags(s) {
+  return String(s)
+    .replace(/<\/?cite\b[^>]*>/gi, "")
+    .replace(/[ \t]+([.,;:!?])/g, "$1")
+    .trim();
+}
+
 // A Wikipedia link built from a topic (not a guessed article URL). The go=Go
 // behaviour lands directly on the article when the title matches, else on search
 // results — either way it always resolves, so it can't be a dead link.
@@ -161,7 +172,7 @@ export default async function handler(req, res) {
     }
     links = links.slice(0, 3);
 
-    return res.status(200).json({ text: String(data.text || ""), links });
+    return res.status(200).json({ text: stripCiteTags(data.text || ""), links });
   } catch (err) {
     console.error("more proxy error:", err?.message || err);
     return res.status(502).json({ error: "Couldn’t load more right now" });
